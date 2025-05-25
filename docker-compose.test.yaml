@@ -1,16 +1,24 @@
-services:
-  test:
-    build:
-      context: .
-      dockerfile: Dockerfile.test
-    networks:
-      - servers
-    depends_on:
-      - server1
-      - server2
-      - server3
-      - balancer
+version: '3.8'
 
-  balancer:
-    # Для тестів включаємо режим відлагодження, коли балансувальник додає інформацію, кому було відправлено запит.
-    command: ["lb", "--trace=true"]
+services:
+    test:
+        build:
+            context: .
+            dockerfile: Dockerfile.test
+        networks:
+            - servers
+        depends_on:
+            balancer:
+                condition: service_started
+            server1:
+                condition: service_started
+            server2:
+                condition: service_started
+            server3:
+                condition: service_started
+        environment:
+            INTEGRATION_TEST: 'true'
+            BALANCER_ADDR: 'http://balancer:8080'
+
+    balancer:
+        command: ['lb', '-trace=true']
