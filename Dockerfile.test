@@ -1,7 +1,14 @@
+# Використовуємо офіційний образ Golang як базовий для збірки
 FROM golang:1.24 AS build
 
-WORKDIR /go/src/practice-4
+WORKDIR /app
+
+COPY go.mod ./
+RUN go mod download
+RUN go mod verify
+
 COPY . .
 
-ENV INTEGRATION_TEST=1
-ENTRYPOINT ["go", "test", "./integration"]
+ENV INTEGRATION_TEST=true
+
+ENTRYPOINT ["go", "test", "-v", "-count=1", "./integration/..."]
