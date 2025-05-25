@@ -9,7 +9,7 @@ services:
     networks:
       - servers
     ports:
-      - "8090:8090"
+      - "8090:8080"
 
   server1:
     build: .
