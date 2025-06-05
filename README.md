@@ -1,4 +1,4 @@
-# Load-balancer
+# Simple Storage
 
 University assignment for Software Architecture course
 
