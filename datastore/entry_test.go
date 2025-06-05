@@ -7,7 +7,7 @@ import (
 )
 
 func TestEntry_Encode(t *testing.T) {
-	e := entry{"key", "value"}
+	e := entry{"key", "value", Text}
 	e.Decode(e.Encode())
 	if e.key != "key" {
 		t.Error("incorrect key")
