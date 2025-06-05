@@ -1,12 +1,14 @@
 package datastore
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestDb(t *testing.T) {
 	tmp := t.TempDir()
-	db, err := Open(tmp)
+	db, err := Open(tmp, 1*Mb)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +63,7 @@ func TestDb(t *testing.T) {
 		if err := db.Close(); err != nil {
 			t.Fatal(err)
 		}
-		db, err = Open(tmp)
+		db, err = Open(tmp, 1*Mb)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -81,4 +83,113 @@ func TestDb(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("put/get int64", func(t *testing.T) {
+		key := "int_key"
+		var value int64 = 10
+
+		err := db.PutInt64(key, value)
+		if err != nil {
+			t.Fatalf("PutInt64 failed: %v", err)
+		}
+
+		got, err := db.GetInt64(key)
+		if err != nil {
+			t.Fatalf("GetInt64 failed: %v", err)
+		}
+
+		if got != value {
+			t.Errorf("GetInt64(%q) = %d, want %d", key, got, value)
+		}
+	})
+
+	t.Run("int64 wrong type", func(t *testing.T) {
+		strKey := "string_key"
+		err := db.Put(strKey, "not int")
+		if err != nil {
+			t.Fatalf("Put failed: %v", err)
+		}
+
+		_, err = db.GetInt64(strKey)
+		if err == nil {
+			t.Fatalf("expected type error when reading string as int64")
+		}
+	})
+
+	t.Run("string wrong type", func(t *testing.T) {
+		intKey := "int_key_2"
+		var intVal int64 = 10
+
+		err := db.PutInt64(intKey, intVal)
+		if err != nil {
+			t.Fatalf("PutInt64 failed: %v", err)
+		}
+
+		_, err = db.Get(intKey)
+		if err == nil {
+			t.Fatalf("expected type error when reading int64 as string")
+		}
+	})
+}
+
+func TestMergeSegments(t *testing.T) {
+	tmp := t.TempDir()
+
+	db, err := Open(tmp, 50)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	entries := map[string]string{
+		"one":   "11111111111111111111",
+		"two":   "22222222222222222222",
+		"three": "33333333333333333333",
+	}
+
+	for k, v := range entries {
+		if err := db.Put(k, v); err != nil {
+			t.Fatalf("failed to put key %q: %v", k, err)
+		}
+	}
+
+	segCountBefore := len(db.segments)
+	if segCountBefore <= 1 {
+		t.Fatalf("expected multiple segments before merge, got %d", segCountBefore)
+	}
+
+	err = db.MergeSegments()
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	if len(db.segments) != 1 {
+		t.Fatalf("expected 1 segment after merge, got %d", len(db.segments))
+	}
+
+	for k, v := range entries {
+		got, err := db.Get(k)
+		if err != nil {
+			t.Fatalf("failed to get key %q after merge: %v", k, err)
+		}
+		if got != v {
+			t.Errorf("key %q: expected %q, got %q", k, v, got)
+		}
+	}
+
+	files, err := os.ReadDir(tmp)
+	if err != nil {
+		t.Fatalf("failed to read temp tmp: %v", err)
+	}
+	for _, f := range files {
+		if !filepath.HasPrefix(f.Name(), outFileName+"-") {
+			continue
+		}
+		t.Logf("Remaining file: %s", f.Name())
+	}
+	if len(files) != 1 {
+		t.Errorf("expected 1 file after merge, found %d", len(files))
+	}
 }
