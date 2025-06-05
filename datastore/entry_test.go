@@ -21,7 +21,7 @@ func TestReadValue(t *testing.T) {
 	var (
 		a, b entry
 	)
-	a = entry{"key", "test-value"}
+	a = entry{"key", "10", Number}
 	originalBytes := a.Encode()
 
 	b.Decode(originalBytes)
